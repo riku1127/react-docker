@@ -1,4 +1,5 @@
-// test PR branch for practiceimport { useState } from "react";
+import { useState } from "react";
+
 export default function App() {
   // Todoリストをstateで管理する
   const [todos, setTodos] = useState([
