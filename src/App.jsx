@@ -1,27 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function App() {
-  // Todoリストをstateで管理する
   // バックエンドから取得する一覧(配列)
   const [todos, setTodos] = useState([]);
   // 新規追加
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false); //一覧取得中
-  const [adding, setAdding] = useState(false); //追加中
   const [error, setError] = useState("");
-  const inputRef = useState(null); //フォーカス用
+  const inputRef = useRef(null); //フォーカス用
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState("");
-
-  // 8787に
-  const API_BASE = "http://localhost:8787";
+  const [userId, setUserId] = useState(() => localStorage.getItem("uid") || "1");
 
   //一覧表示
   const fetchTodos = async () => {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("/api/todos");
+      const res = await fetch("/api/todos", {
+        headers: { "x-user-id": userId },
+      });
 
       if (!res.ok) {
         const txt = await res.text();
@@ -30,7 +28,6 @@ export default function App() {
       }
       const data = await res.json();
       console.log("取得したtodo", data);
-      //サーバ側が{id, title, completed}で返す想定なのでそれに合わせる
       setTodos(data);
     } catch (e) {
       console.error(e);
@@ -40,10 +37,10 @@ export default function App() {
     }
   };
 
-  // 初回だけ一覧取得
+  // 初回&userId変更時に一覧取得
   useEffect(() => {
     fetchTodos();
-  }, []);
+  }, [userId]);
 
   // 追加処理(POST)
   const handleAdd = async (e) => {
@@ -57,7 +54,7 @@ export default function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": "1", // ← 仮ユーザーIDを送る（DBに合わせて）
+          "x-user-id": userId, // ← 仮ユーザーIDを送る（DBに合わせて）
         },
         body: JSON.stringify({ title: text, completed: false }),
       });
@@ -70,7 +67,7 @@ export default function App() {
       setText("");
       // 追加に成功したら一覧取得し直し
       await fetchTodos();
-      inputRef.ccurent?.focus();
+      inputRef.current?.focus();
     } catch (e) {
       console.error(e);
       setError("登録に失敗しました");
@@ -86,7 +83,7 @@ export default function App() {
       setError("");
       const res = await fetch(`/api/todos/${id}`, {
         method: "DELETE",
-        headers: { "x-user-id": "1" }, //いまは固定
+        headers: { "x-user-id": userId }, //いまは固定
       });
       if (!res.ok) throw new Error("削除に失敗しました");
       await fetchTodos(); //成功したら一覧再取得
@@ -111,7 +108,7 @@ export default function App() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": "1",
+          "x-user-id": userId,
         },
         body: JSON.stringify({ title }),
       });
@@ -131,7 +128,7 @@ export default function App() {
 
   const cancelEdit = () => {
     setEditingId(null);
-    setText("");
+    setEditText("");
   }
   return (
     <div className="todo-app" style={{ padding: "16px" }}>
@@ -154,6 +151,19 @@ export default function App() {
           再読み込み
         </button>
       </form>
+      <div style={{ marginBottom: 8 }}>
+        <label style={{ marginRight: 8 }}>ユーザー：</label>
+        <select value={userId}
+          onChange={(e) => {
+            const v = e.target.value;
+            setUserId(v);
+            localStorage.setItem("uid", v);
+          }}
+        >
+          <option value="1">1: test_user</option>
+          <option value="2">2: sub_user</option>
+        </select>
+      </div>
 
       {loading && <p>読み込み中...</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
