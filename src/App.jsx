@@ -49,7 +49,6 @@ export default function App() {
 
     try {
       setError("");
-      setAdding(true);
       const res = await fetch("/api/todos", {
         method: "POST",
         headers: {
@@ -71,8 +70,6 @@ export default function App() {
     } catch (e) {
       console.error(e);
       setError("登録に失敗しました");
-    } finally {
-      setAdding(false);
     }
   };
 
