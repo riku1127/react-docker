@@ -1,12 +1,8 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { pool } from './db.ts'
-import { error } from 'console'
 
 const app = new Hono()
-
-app.get('/', (c) => c.text('Hello from Hono!'))
-app.get('/api/hello', (c) => c.json({ message: 'こんにちは Hono！' }))
 app.use('/api/*', async (c, next) => {
     await next()
     c.header('Content-Type', 'application/json; charset=utf-8')
@@ -14,14 +10,15 @@ app.use('/api/*', async (c, next) => {
 
 //一覧取得(GET)
 app.get('/api/todos', async (c) => {
-    const userId = c.req.header('x-user-id')
+    const userId = c.req.header('x-user-id');
+    if (!userId) return c.json({ ok: false, error: 'x-user-id header is required' }, 400);
     try {
-        const [rows] = await pool.query("SELECT * FROM todos ORDER BY created_at DESC", [userId])
-        return c.json(rows)
+        const [rows] = await pool.query("SELECT id, title, completed, created_at FROM todos WHERE user_id = ? ORDER BY created_at DESC", [userId])
+        return c.json(rows);
     } catch (err) {
-        console.error(err)
+        console.error(err);
         return c.json(
-            { ok: false, error: (err as Error).message }, 500)
+            { ok: false, error: (err as Error).message }, 500);
     }
 });
 //追加(POST)
@@ -92,8 +89,9 @@ app.patch('/api/todos/:id', async (c) => {
     }
 });
 
-serve({
-    fetch: app.fetch,
-    port: 8787,
-})
+// 追加・削除・編集の部分はそのままでOK
+
+// サーバー起動
+serve({ fetch: app.fetch, port: 8787 })
 console.log('🚀 Server running at http://localhost:8787')
+
