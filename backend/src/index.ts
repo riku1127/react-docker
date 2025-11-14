@@ -1,12 +1,19 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { pool } from './db.ts'
+import 'dotenv/config';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import type { SignOptions } from 'jsonwebtoken';
+
 
 const app = new Hono()
 app.use('/api/*', async (c, next) => {
     await next()
     c.header('Content-Type', 'application/json; charset=utf-8')
 })
+
+const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-me';
 
 //一覧取得(GET)
 app.get('/api/todos', async (c) => {
@@ -38,6 +45,64 @@ app.post('/api/todos', async (c) => {
     } catch (err) {
         console.error(err);
         return c.json({ ok: false, error: (err as Error).message }, 500);
+    }
+});
+// ログインAPI
+app.post('/api/login', async (c) => {
+    try {
+        const body = await c.req.json<{ email: string; password: string }>().catch(() => null);
+
+        if (!body || !body.email || !body.password) {
+            return c.json({ message: 'メールアドレスとパスワードを入力してください' }, 400);
+        }
+        const { email, password } = body;
+
+        // usersテーブルからユーザ取得
+        const [rows] = await pool.query('SELECT id, name, email, password_hash FROM users WHERE email = ?', [email]);
+
+        const user = Array.isArray(rows) ? (rows as any[])[0] : null;
+
+        if (!user) {
+            return c.json({ message: 'メールアドレスまたはパスワードが違います' }, 401);
+        }
+
+        // パスワード照合
+        const ok = await bcrypt.compare(password, (user as any).password_hash);
+        if (!ok) {
+            return c.json({ message: 'メールアドレスまたはパスワードが違います' }, 401);
+        }
+
+
+        // JWT発行
+        const payload = {
+            userId: user.id,
+            name: user.name,
+            email: user.email,
+        };
+
+        const jwtOptions: SignOptions = {
+            expiresIn: (process.env.JWT_EXPIRES_IN ?? '1d') as any,
+        };
+
+        const token = jwt.sign(payload, JWT_SECRET, jwtOptions);
+
+        return c.json({
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+            },
+        });
+    } catch (err) {
+        console.error('login error:', err);
+        return c.json(
+            {
+                message: 'ログイン処理中にエラーが発生しました',
+                error: String(err),  // ← これ追加！
+            },
+            500
+        );
     }
 });
 //削除(DELETE)
@@ -94,4 +159,3 @@ app.patch('/api/todos/:id', async (c) => {
 // サーバー起動
 serve({ fetch: app.fetch, port: 8787 })
 console.log('🚀 Server running at http://localhost:8787')
-

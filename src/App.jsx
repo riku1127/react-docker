@@ -1,16 +1,90 @@
 import { useEffect, useRef, useState } from "react";
 
+function Login({ onLoginSuccess }) {
+  const [email, setEmail] = useState("test@icloud.com");
+  const [password, setPassword] = useState("password");
+  const [error, setError] = useState("");
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    //前後の空白カット
+    const cleanEmail = email.trim();
+    const cleanPassword = password;
+    if (!cleanEmail || !cleanPassword) {
+      setError("メールアドレスとパスワードを入力してください");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
+      });
+      const data = await res.json();
+      console.log("login response:", res.status, data);
+
+      if (!res.ok) {
+        setError(data.message || "ログインに失敗しました");
+        return;
+      }
+
+      //ログイン成功を親コンポーネントに通知
+      onLoginSuccess?.(data);
+    } catch (err) {
+      console.error("login error:", err);
+      setError("ログイン中にエラーが発生しました");
+    }
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>Todoリスト(API連携)</h1>
+      <h2>ログイン</h2>
+
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <form onSubmit={handleLogin}>
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            メール：
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            パスワード：
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+        </div>
+        <button type="submit">ログイン</button>
+      </form>
+    </div>
+  );
+}
+
 export default function App() {
   // バックエンドから取得する一覧(配列)
   const [todos, setTodos] = useState([]);
-  // 新規追加
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false); //一覧取得中
   const [error, setError] = useState("");
   const inputRef = useRef(null); //フォーカス用
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState("");
-  const [userId, setUserId] = useState(() => localStorage.getItem("uid") || "1");
+  const [userId, setUserId] = useState(() => localStorage.getItem("uid") || "");
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
+
 
   //一覧表示
   const fetchTodos = async () => {
@@ -39,8 +113,9 @@ export default function App() {
 
   // 初回&userId変更時に一覧取得
   useEffect(() => {
+    if (!isLoggedIn || !userId) return;
     fetchTodos();
-  }, [userId]);
+  }, [userId, isLoggedIn]);
 
   // 追加処理(POST)
   const handleAdd = async (e) => {
@@ -127,8 +202,31 @@ export default function App() {
     setEditingId(null);
     setEditText("");
   }
+  if (!isLoggedIn) {
+    //ログインしていない時はログイン画面を表示
+    return (
+      <Login onLoginSuccess={(data) => {
+        // data= {token, user}
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("uid", data.user.id);
+
+        setUserId(String(data.user.id));
+        setIsLoggedIn(true);
+      }}
+      />
+    )
+  }
   return (
     <div className="todo-app" style={{ padding: "16px" }}>
+      <button onClick={() => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("uid");
+        window.location.reload();
+      }}
+        style={{ marginBottom: 16 }}
+      >
+        ログアウト
+      </button>
       <h1>Todoリスト(API連携)</h1>
 
       {/* 入力欄 (フォーム化)*/}
