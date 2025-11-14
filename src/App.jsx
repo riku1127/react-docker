@@ -218,7 +218,7 @@ export default function App() {
   }
   return (
     <div className="todo-app" style={{ padding: "16px" }}>
-      <buttun onClick={() => {
+      <button onClick={() => {
         localStorage.removeItem("token");
         localStorage.removeItem("uid");
         window.location.reload();
@@ -226,7 +226,7 @@ export default function App() {
         style={{ marginBottom: 16 }}
       >
         ログアウト
-      </buttun>
+      </button>
       <h1>Todoリスト(API連携)</h1>
 
       {/* 入力欄 (フォーム化)*/}
