@@ -1,4 +1,4 @@
-// db.ts
+import 'dotenv/config';
 import mysql from 'mysql2';
 
 // まずは「非Promise」のプールを作る
