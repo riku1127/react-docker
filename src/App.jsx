@@ -41,7 +41,7 @@ function Login({ onLoginSuccess }) {
   return (
     <div style={{ padding: 20 }}>
       <h1>Todoリスト(API連携)</h1>
-      <h2>ログイン</h2>
+      <h2>ログイン画面</h2>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
@@ -82,8 +82,9 @@ export default function App() {
   const inputRef = useRef(null); //フォーカス用
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState("");
-  const [userId, setUserId] = useState(() => localStorage.getItem("uid") || "");
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
+
+  const token = localStorage.getItem("token");
 
 
   //一覧表示
@@ -92,7 +93,10 @@ export default function App() {
       setLoading(true);
       setError("");
       const res = await fetch("/api/todos", {
-        headers: { "x-user-id": userId },
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
       });
 
       if (!res.ok) {
@@ -113,9 +117,9 @@ export default function App() {
 
   // 初回&userId変更時に一覧取得
   useEffect(() => {
-    if (!isLoggedIn || !userId) return;
+    if (!isLoggedIn) return;
     fetchTodos();
-  }, [userId, isLoggedIn]);
+  }, [isLoggedIn]);
 
   // 追加処理(POST)
   const handleAdd = async (e) => {
@@ -127,8 +131,8 @@ export default function App() {
       const res = await fetch("/api/todos", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "x-user-id": userId, // ← 仮ユーザーIDを送る（DBに合わせて）
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ title: text, completed: false }),
       });
@@ -155,7 +159,10 @@ export default function App() {
       setError("");
       const res = await fetch(`/api/todos/${id}`, {
         method: "DELETE",
-        headers: { "x-user-id": userId }, //いまは固定
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
       });
       if (!res.ok) throw new Error("削除に失敗しました");
       await fetchTodos(); //成功したら一覧再取得
@@ -179,8 +186,8 @@ export default function App() {
       const res = await fetch(`/api/todos/${id}`, {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
-          "x-user-id": userId,
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ title }),
       });
@@ -208,9 +215,6 @@ export default function App() {
       <Login onLoginSuccess={(data) => {
         // data= {token, user}
         localStorage.setItem("token", data.token);
-        localStorage.setItem("uid", data.user.id);
-
-        setUserId(String(data.user.id));
         setIsLoggedIn(true);
       }}
       />
@@ -246,19 +250,6 @@ export default function App() {
           再読み込み
         </button>
       </form>
-      <div style={{ marginBottom: 8 }}>
-        <label style={{ marginRight: 8 }}>ユーザー：</label>
-        <select value={userId}
-          onChange={(e) => {
-            const v = e.target.value;
-            setUserId(v);
-            localStorage.setItem("uid", v);
-          }}
-        >
-          <option value="1">1: test_user</option>
-          <option value="2">2: sub_user</option>
-        </select>
-      </div>
 
       {loading && <p>読み込み中...</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
